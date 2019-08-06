@@ -1,8 +1,10 @@
 package com.wyli.community;
 
 import com.wyli.community.dao.DiscussPostMapper;
+import com.wyli.community.dao.LoginTicketMapper;
 import com.wyli.community.dao.UserMapper;
 import com.wyli.community.entity.DiscussPost;
+import com.wyli.community.entity.LoginTicket;
 import com.wyli.community.entity.User;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,5 +55,25 @@ public class MapperTests {
 
         int count = discussPostMapper.selectDiscussPostRows(101);
         System.out.println(count);
+    }
+
+    @Autowired
+    private LoginTicketMapper loginTicketMapper;
+
+    @Test
+    public void testInsertLoginTicket() {
+        LoginTicket loginTicket = new LoginTicket();
+        loginTicket.setUserId(101);
+        loginTicket.setStatus(1);
+        loginTicket.setTicket("world");
+        loginTicket.setExpired(new Date(System.currentTimeMillis() + 1000 * 60 * 10));
+        loginTicketMapper.insertLoginTicket(loginTicket);
+        System.out.println(loginTicket.getId());
+    }
+
+    @Test
+    public void testSelectByTicket() {
+        LoginTicket loginTicket = loginTicketMapper.selectByTicket("world");
+        System.out.println(loginTicket);
     }
 }

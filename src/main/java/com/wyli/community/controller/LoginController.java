@@ -1,4 +1,171 @@
 package com.wyli.community.controller;
 
-public class LoginController {
+import com.google.code.kaptcha.Producer;
+import com.wyli.community.entity.User;
+import com.wyli.community.service.UserService;
+import com.wyli.community.util.CommunityConstants;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.ibatis.annotations.Param;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.Banner;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.resource.HttpResource;
+
+import javax.imageio.ImageIO;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
+
+@Controller
+public class LoginController implements CommunityConstants {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoginController.class);
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private Producer kaptchaProducer;
+
+    @Value("${server.servlet.context-path}")
+    private String contextPath;
+
+    @RequestMapping(path="/register", method = RequestMethod.GET)
+    public String getRegisterPage() {
+        return "/site/register";
+    }
+
+    @RequestMapping(path="/register", method = RequestMethod.POST)
+    public String register(Model model, User user) {
+        Map<String, Object> map = userService.register(user);
+        if (map == null || map.isEmpty()) {
+            model.addAttribute("message", "注册成功，我们向您的邮箱发送了一封激活邮件，请尽快激活！");
+            model.addAttribute("target", "/index");
+            return "/site/operate-result";
+        } else {
+            model.addAttribute("usernameMsg", map.get("usernameMsg"));
+            model.addAttribute("passwordMsg", map.get("passwordMsg"));
+            model.addAttribute("emailMsg", map.get("emailMsg"));
+            return "/site/register";
+        }
+    }
+
+    @RequestMapping(path="/activation/{userId}/{code}", method = RequestMethod.GET)
+    public String activation(Model model, @PathVariable("userId") int userId, @PathVariable("code") String code) {
+        int result = userService.activation(userId, code);
+        if (result == ACTIVATION_SUCCESS) {
+            model.addAttribute("message", "激活成功");
+            model.addAttribute("target", "/login");
+        } else if (result == ACTIVATION_REPEAT) {
+            model.addAttribute("message", "无效操作，该用户已激活");
+            model.addAttribute("target", "/index");
+        } else {
+            model.addAttribute("message", "激活失败");
+            model.addAttribute("target", "/index");
+        }
+        return "/site/operate-result";
+    }
+
+    @RequestMapping(path="/login", method = RequestMethod.GET)
+    public String getLoginPage() {
+        return "/site/login";
+    }
+
+    @RequestMapping(value = "/kaptcha", method = RequestMethod.GET)
+    public void getKaptcha(HttpServletResponse response, HttpSession session) {
+        String text = kaptchaProducer.createText();
+        BufferedImage image = kaptchaProducer.createImage(text);
+
+        session.setAttribute("kaptcha", text);
+        response.setContentType("image/png");
+        try {
+            OutputStream os = response.getOutputStream();
+            ImageIO.write(image, "png", os);
+        } catch (IOException e) {
+            logger.error("验证码响应失败：" + e.getMessage());
+        }
+    }
+
+    @RequestMapping(path="/login", method = RequestMethod.POST)
+    public String login(String username, String password, String code, boolean rememberMe,
+                        Model model, HttpSession session, HttpServletResponse response) {
+        String kaptcha = (String)session.getAttribute("kaptcha");
+        if (StringUtils.isBlank(kaptcha) || StringUtils.isBlank(code) || !kaptcha.equalsIgnoreCase(code)) {
+            model.addAttribute("codeMsg", "验证码不正确");
+            return "/site/login";
+        }
+
+        long expiredSeconds = rememberMe ? REMEMBER_EXPIRED_SECONDS : DEFAULT_EXPIRED_SECONDS;
+        Map<String, Object> map = userService.login(username, password, expiredSeconds);
+        if (map.containsKey("ticket")) {
+            Cookie cookie = new Cookie("ticket", map.get("ticket").toString());
+            cookie.setPath(contextPath);
+            cookie.setMaxAge((int)expiredSeconds);
+            response.addCookie(cookie);
+            return "redirect:/index";
+        } else {
+            model.addAttribute("usernameMsg", map.get("usernameMsg"));
+            model.addAttribute("passwordMsg", map.get("passwordMsg"));
+            return "/site/login";
+        }
+    }
+
+    @RequestMapping(path = "/logout", method = RequestMethod.GET)
+    public String logout(@CookieValue("ticket") String ticket) {
+        userService.logout(ticket);
+        return "redirect:/index";
+    }
+
+    @RequestMapping(path = "/forget", method = RequestMethod.GET)
+    public String getForgetPage() {
+        return "/site/forget";
+    }
+
+    @RequestMapping(path = "/sendCode", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> sendCode(String email, HttpSession session) {
+
+        Map<String, Object> map = userService.sendCode(email);
+        if (map.containsKey("code")) {
+            session.setAttribute("code", map.get("code"));
+            session.setAttribute("email", email);
+        }
+        map.remove("code");
+        return map;
+    }
+
+    @RequestMapping(path = "/forget", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> forget(String email, String code, String new_password, HttpSession session) {
+        Map<String, Object> map = new HashMap<>();
+
+        String correct_email = (String) session.getAttribute("email");
+        String correct_code  = (String) session.getAttribute("code");
+
+        if (StringUtils.isBlank(code) || StringUtils.isBlank(correct_code) || !code.equalsIgnoreCase(correct_code)) {
+            map.put("codeMsg", "验证码错误");
+            map.put("status", 1);
+            return map;
+        }
+        if (!email.equals(correct_email)) {
+            map.put("emailMsg", "请重新验证");
+            map.put("status", 1);
+            return map;
+        }
+        int result = userService.updatePassword(email, new_password);
+        map.put("status", result);
+        return map;
+    }
+
+
 }
