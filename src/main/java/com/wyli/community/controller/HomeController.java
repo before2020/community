@@ -1,7 +1,5 @@
 package com.wyli.community.controller;
 
-import com.wyli.community.dao.DiscussPostMapper;
-import com.wyli.community.dao.UserMapper;
 import com.wyli.community.entity.DiscussPost;
 import com.wyli.community.entity.Page;
 import com.wyli.community.entity.User;
@@ -13,8 +11,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,5 +42,10 @@ public class HomeController {
         }
         model.addAttribute("discussPosts", list);
         return "index";
+    }
+
+    @RequestMapping(path = "/error", method = RequestMethod.GET)
+    public String getErrorPage() {
+        return "/error/404";
     }
 }

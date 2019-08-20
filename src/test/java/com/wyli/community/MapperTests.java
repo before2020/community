@@ -2,9 +2,11 @@ package com.wyli.community;
 
 import com.wyli.community.dao.DiscussPostMapper;
 import com.wyli.community.dao.LoginTicketMapper;
+import com.wyli.community.dao.MessageMapper;
 import com.wyli.community.dao.UserMapper;
 import com.wyli.community.entity.DiscussPost;
 import com.wyli.community.entity.LoginTicket;
+import com.wyli.community.entity.Message;
 import com.wyli.community.entity.User;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -22,6 +24,10 @@ import java.util.List;
 public class MapperTests {
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private LoginTicketMapper loginTicketMapper;
+    @Autowired
+    private MessageMapper messageMapper;
 
     @Test
     public void testSelectUser() {
@@ -57,8 +63,6 @@ public class MapperTests {
         System.out.println(count);
     }
 
-    @Autowired
-    private LoginTicketMapper loginTicketMapper;
 
     @Test
     public void testInsertLoginTicket() {
@@ -75,5 +79,17 @@ public class MapperTests {
     public void testSelectByTicket() {
         LoginTicket loginTicket = loginTicketMapper.selectByTicket("world");
         System.out.println(loginTicket);
+    }
+
+    @Test
+    public void testMessageMapper() {
+        List<Message> messages1 = messageMapper.selectConversations(111, 0, 10);
+        for (Message message : messages1) {
+            System.out.println(message);
+        }
+        List<Message> messages2 = messageMapper.selectMessages("111_131", 0, 10);
+        for (Message message : messages2) {
+            System.out.println(message);
+        }
     }
 }

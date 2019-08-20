@@ -6,7 +6,7 @@
 </head>
 <body>
 
-    <form method="post" action="/community/alpha/student">
+    <form id="form" method="get" action="/community/ajax">
         <p>
             姓名: <input type="text" name="name">
         </p>
@@ -18,5 +18,26 @@
         </p>
     </form>
 
+
+    <script
+            src="https://code.jquery.com/jquery-3.4.1.js"
+            integrity="sha256-WpOohJOqMqqyKL9FccASB9O0KwACQJpFTUBLTYOVvVU="
+            crossorigin="anonymous"></script>
+    <script >
+        $('#form').on('submit', function (ev) {
+            ev.preventDefault();
+            $.ajax({
+                url: '/community/ajax',
+                type: "get",
+                data: $('#form').serialize(),
+                success: function (data) {
+                    console.log(data);
+                    var json = JSON.parse(data);
+                    console.log(json);
+                    console.log(json.code, json.msg, json.name, json.age);
+                }
+            })
+        })
+    </script>
 </body>
 </html>
