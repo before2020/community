@@ -2,6 +2,7 @@ package com.wyli.community.controller;
 
 import com.wyli.community.annotation.LoginRequired;
 import com.wyli.community.entity.User;
+import com.wyli.community.service.LikeService;
 import com.wyli.community.service.UserService;
 import com.wyli.community.util.CommunityUtil;
 import com.wyli.community.util.HostHolder;
@@ -30,10 +31,11 @@ public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
-    private UserService userService;
-
-    @Autowired
     private HostHolder hostHolder;
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private LikeService likeService;
 
     @Value("${community.path.domain}")
     private String domain;
@@ -129,5 +131,13 @@ public class UserController {
             logger.error("密码修改失败");
             return "/site/setting";
         }
+    }
+
+    @RequestMapping(value = "/profile/{userId}", method = RequestMethod.GET)
+    public String getProfile(@PathVariable("userId") int userId, Model model) {
+        // 要查看的用户和TA收到的总赞数
+        model.addAttribute("user", userService.findUserById(userId));
+        model.addAttribute("likeCount", likeService.findUserLikeCount(userId));
+        return "/site/profile";
     }
 }
