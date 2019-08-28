@@ -30,7 +30,7 @@
 				</h6>
 				<!-- 作者 -->
 				<div class="media pb-3 border-bottom">
-					<a th:href="@{|/user/profile/${user.id}|}">
+					<a th:href="@{|/profile/${user.id}|}">
 						<img th:src="${user.headerUrl}" class="align-self-start mr-4 rounded-circle user-header" alt="用户头像" >
 					</a>
 					<div class="media-body">
@@ -63,7 +63,7 @@
 				<ul class="list-unstyled mt-4">
 					<li class="media pb-3 pt-3 mb-3 border-bottom"
 						th:each="cvo:${comments}">
-						<a th:href="@{|/user/profile/${cvo.author.id}|}">
+						<a th:href="@{|/profile/${cvo.author.id}|}">
 							<img th:src="${cvo.author.headerUrl}" class="align-self-start mr-4 rounded-circle user-header" alt="用户头像" >
 						</a>
 						<div class="media-body">
@@ -88,7 +88,7 @@
 							<ul class="list-unstyled mt-4 bg-gray p-3 font-size-12 text-muted">
 								<li class="pb-3 pt-3 mb-3 border-bottom" th:each="rvo:${cvo.replys}">
 									<div>
-										<a th:href="@{|/user/profile/${rvo.author.id}|}">
+										<a th:href="@{|/profile/${rvo.author.id}|}">
 											<b class="text-info" th:utext="${rvo.author.username}"></b>
                                             :&nbsp;回复&nbsp;
 										</a>
