@@ -7,10 +7,12 @@ import com.wyli.community.entity.User;
 import com.wyli.community.util.CommunityConstants;
 import com.wyli.community.util.CommunityUtil;
 import com.wyli.community.util.MailClient;
+import com.wyli.community.util.RedisKeyUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.annotations.Param;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -23,15 +25,14 @@ import java.util.*;
 public class UserService implements CommunityConstants {
     @Autowired
     private UserMapper userMapper;
-
     @Autowired
     private MailClient mailClient;
-
     @Autowired
     private TemplateEngine templateEngine;
-
     @Autowired
     private LoginTicketMapper loginTicketMapper;
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     @Value("${community.path.domain}")
     private String domain;
@@ -39,14 +40,24 @@ public class UserService implements CommunityConstants {
     @Value("${server.servlet.context-path}")
     private String contextPath;
 
+    // 这个方法调用很频繁，所以把user信息存进redis
     public User findUserById(int id) {
-        return userMapper.selectById(id);
+//        return userMapper.selectById(id);
+        String redisKey = RedisKeyUtil.getUserKey(id);
+        User user = (User)redisTemplate.opsForValue().get(redisKey);
+        if (user == null) {
+            // redis缓存中没有，要从mysql里找出来，保存到缓存里
+            user = userMapper.selectById(id);
+            redisTemplate.opsForValue().set(redisKey, user);
+        }
+        return user;
     }
 
     public User findUserByUsername(String username) {
         return userMapper.selectByUsername(username);
     }
-    // 验证用户信息
+
+    // 注册
     public Map<String, Object> register(User user) {
         HashMap<String, Object> map = new HashMap<>();
         if (user == null) {
@@ -135,7 +146,10 @@ public class UserService implements CommunityConstants {
         loginTicket.setStatus(0);
         loginTicket.setExpired(new Date(System.currentTimeMillis() + expiredSeconds * 1000));
         loginTicket.setTicket(CommunityUtil.generateUUID());
-        loginTicketMapper.insertLoginTicket(loginTicket);
+//        loginTicketMapper.insertLoginTicket(loginTicket);
+        // 改为在redis里存储，而不是mysql
+        String redisKey = RedisKeyUtil.getTicketKey(loginTicket.getTicket());
+        redisTemplate.opsForValue().set(redisKey, loginTicket);
 
         map.put("ticket", loginTicket.getTicket());
         return map;
@@ -143,7 +157,13 @@ public class UserService implements CommunityConstants {
 
     public void logout(String ticket) {
         if (ticket == null) return;
-        loginTicketMapper.updateLoginTicket(ticket, 1);
+//        loginTicketMapper.updateLoginTicket(ticket, 1);
+        String redisKey = RedisKeyUtil.getTicketKey(ticket);
+        LoginTicket loginTicket = (LoginTicket) redisTemplate.opsForValue().get(redisKey);
+        if(loginTicket != null) {
+            loginTicket.setStatus(1);
+            redisTemplate.opsForValue().set(redisKey, loginTicket);
+        }
     }
 
     public Map<String, Object> sendCode(String email) {
@@ -170,7 +190,6 @@ public class UserService implements CommunityConstants {
     }
 
     public int updatePassword(String email, String new_password) {
-        System.out.println(new_password);
         Map<String, Object> map = new HashMap<>();
         User user = userMapper.selectByEmail(email);
         if (user == null) {
@@ -182,10 +201,17 @@ public class UserService implements CommunityConstants {
     }
 
     public LoginTicket findLoginTicket(String ticket) {
-        return loginTicketMapper.selectByTicket(ticket);
+        String redisKey = RedisKeyUtil.getTicketKey(ticket);
+//        return loginTicketMapper.selectByTicket(ticket);
+        return (LoginTicket) redisTemplate.opsForValue().get(redisKey);
     }
 
+
     public int updateHeader(int userId, String headerUrl) {
-        return userMapper.updateHeader(userId, headerUrl);
+//        return userMapper.updateHeader(userId, headerUrl);
+        int rows = userMapper.updateHeader(userId, headerUrl);
+        // 清除缓存
+        redisTemplate.delete(RedisKeyUtil.getUserKey(userId));
+        return rows;
     }
 }

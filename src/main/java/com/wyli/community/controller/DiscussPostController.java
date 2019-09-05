@@ -1,9 +1,7 @@
 package com.wyli.community.controller;
 
-import com.wyli.community.entity.Comment;
-import com.wyli.community.entity.DiscussPost;
-import com.wyli.community.entity.Page;
-import com.wyli.community.entity.User;
+import com.wyli.community.entity.*;
+import com.wyli.community.event.EventProducer;
 import com.wyli.community.service.CommentService;
 import com.wyli.community.service.DiscussPostService;
 import com.wyli.community.service.LikeService;
@@ -34,6 +32,8 @@ public class DiscussPostController implements CommunityConstants {
     private LikeService likeService;
     @Autowired
     private HostHolder hostHolder;
+    @Autowired
+    private EventProducer eventProducer;
 
     @RequestMapping(path = "/add", method = RequestMethod.POST)
     @ResponseBody
@@ -49,6 +49,14 @@ public class DiscussPostController implements CommunityConstants {
         post.setContent(content);
         post.setCreateTime(new Date());
         discussPostService.addDiscussPost(post);
+
+        // 保存到elasticsearch中
+        Event event = new Event()
+                .setTopic(TOPIC_PUBLISH)
+                .setEntityId(post.getId())
+                .setEntityType(ENTITY_TYPE_POST)
+                .setUserId(hostHolder.getUser().getId());
+        eventProducer.fireEvent(event);
 
         return CommunityUtil.getJSONString(0, "发布成功！");
     }
